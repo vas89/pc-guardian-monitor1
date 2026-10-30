@@ -2,11 +2,11 @@ name: Build EXE
 
 on:
   push:
-    branches: [ "main", "основной" ] # Запускать сборку при обновлении кода
+    branches: [ "main", "основной" ]
 
 jobs:
   build:
-    runs-on: windows-latest # Запускаем сборку на сервере с Windows
+    runs-on: windows-latest
 
     steps:
     - name: Checkout repository
@@ -15,7 +15,7 @@ jobs:
     - name: Set up Python
       uses: actions/setup-python@v5
       with:
-        python-color: '3.11'
+        python-version: '3.11'
 
     - name: Install dependencies
       run: |
