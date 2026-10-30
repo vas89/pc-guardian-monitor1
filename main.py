@@ -97,7 +97,6 @@ class MainWindow(ctk.CTk):
             p = psutil.Process(pid)
             p.terminate()
             p.wait(timeout=2)
-            # Обновляем текущий экран после удаления
             if callback_view == "processes":
                 self.show_processes()
             elif callback_view == "threats":
@@ -108,11 +107,10 @@ class MainWindow(ctk.CTk):
     def core_background_monitor(self):
         """Фоновый сборщик системных данных и анализатор майнеров"""
         while self.is_running:
-            # 1. Сбор базовых метрик
+            # Сбор метрик
             self.cpu_usage = psutil.cpu_percent(interval=None)
             self.ram_usage = psutil.virtual_memory().percent
             
-            # Обновление UI Дашборда
             if self.active_tab_name == "dashboard" and hasattr(self, 'cpu_progress'):
                 try:
                     self.cpu_progress.set(self.cpu_usage / 100)
@@ -122,7 +120,7 @@ class MainWindow(ctk.CTk):
                 except Exception:
                     pass
 
-            # 2. Сканирование процессов на майнеры (Эвристика)
+            # Анализ процессов
             temp_threats = []
             for proc in psutil.process_iter(['pid', 'name', 'exe', 'cmdline']):
                 try:
@@ -131,18 +129,15 @@ class MainWindow(ctk.CTk):
                     p_exe = p_info['exe'] or ''
                     p_cmd = p_info['cmdline'] or []
                     
-                    # Правило 1: Известные аргументы майнеров в командной строке
                     cmd_str = " ".join(p_cmd).lower()
                     miner_flags = ['--stratum', '--user', 'xmrig', 'minerd', 'pool.mine', 'ethminer', 'stratum+tcp']
                     if any(flag in cmd_str for flag in miner_flags):
                         temp_threats.append((p_info['pid'], p_name, "Подозрительные аргументы запуска (Майнер пул)"))
                         continue
 
-                    # Правило 2: Маскировка под системные процессы Windows
                     system_names = ['svchost.exe', 'lsass.exe', 'services.exe', 'explorer.exe', 'taskmgr.exe']
                     if p_name.lower() in system_names:
                         exe_path = p_exe.lower()
-                        # Если системный процесс запущен НЕ из папок Windows/System32/SysWOW64
                         if "windows" not in exe_path and "system32" not in exe_path:
                             temp_threats.append((p_info['pid'], p_name, "Имитация системного файла (Запущен не из System32)"))
                             continue
@@ -164,7 +159,6 @@ class MainWindow(ctk.CTk):
         title = ctk.CTkLabel(self.current_tab, text="Мониторинг системы в реальном времени", font=("Segoe UI", 22, "bold"))
         title.pack(anchor="w", py=10)
 
-        # CPU Card
         cpu_frame = ctk.CTkFrame(self.current_tab, fg_color="#141419", corner_radius=10, height=100)
         cpu_frame.pack(fill="x", py=10, px=5)
         ctk.CTkLabel(cpu_frame, text="Центральный процессор (CPU)", font=("Segoe UI", 14, "bold")).place(x=15, y=15)
@@ -174,7 +168,6 @@ class MainWindow(ctk.CTk):
         self.cpu_label = ctk.CTkLabel(cpu_frame, text=f"{int(self.cpu_usage)}%", font=("Segoe UI", 16, "bold"), text_color=ACCENT_BLUE)
         self.cpu_label.place(x=530, y=43)
 
-        # RAM Card
         ram_frame = ctk.CTkFrame(self.current_tab, fg_color="#141419", corner_radius=10, height=100)
         ram_frame.pack(fill="x", py=10, px=5)
         ctk.CTkLabel(ram_frame, text="Оперативная память (RAM)", font=("Segoe UI", 14, "bold")).place(x=15, y=15)
@@ -214,11 +207,13 @@ class MainWindow(ctk.CTk):
         for p in processes[:40]:
             row = ctk.CTkFrame(scroll_frame, fg_color="#1E1E24", corner_radius=6, height=35)
             row.pack(fill="x", py=2, px=5)
+            
             ctk.CTkLabel(row, text=str(p['pid']), font=("Segoe UI", 13), width=80, anchor="w").pack(side="left", px=10)
-ctk.CTkLabel(row, text=p['name'] or 'Unknown', font=("Segoe UI", 13), width=300, anchor="w").pack(side="left")
-kill_btn = ctk.CTkButton(
-row, text="Завершить", fg_color="#2A1B24", text_color=WARNING_RED,
-hover_color="#3D1A22", width=90, height=24, corner_radius=4,
+            ctk.CTkLabel(row, text=p['name'] or 'Unknown', font=("Segoe UI", 13), width=300, anchor="w").pack(side="left")
+            
+            kill_btn = ctk.CTkButton(
+                row, text="Завершить", fg_color="#2A1B24", text_color=WARNING_RED, 
+                hover_color="#3D1A22", width=90, height=24, corner_radius=4,
 command=lambda pid=p['pid']: self.terminate_process(pid, "processes")
 )
 kill_btn.pack(side="right", px=10, py=5)
@@ -271,5 +266,3 @@ ctk.set_appearance_mode("dark")
 ctk.set_default_color_theme("blue")
 app = MainWindow()
 app.mainloop()
-
-<FollowUp>
