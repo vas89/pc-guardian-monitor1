@@ -261,8 +261,8 @@ ctk.CTkLabel(info_frame, text="Версия сборки ИИ: 1.0.3 (Финал
 def destroy(self):
 self.is_running = False
 super().destroy()
-if name == "main":
-ctk.set_appearance_mode("dark")
-ctk.set_default_color_theme("blue")
-app = MainWindow()
-app.mainloop()
+if __name__ == "__main__":
+    ctk.set_appearance_mode("dark")
+    ctk.set_default_color_theme("blue")
+    app = MainWindow()
+    app.mainloop()
