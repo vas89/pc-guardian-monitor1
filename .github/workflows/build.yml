@@ -23,12 +23,122 @@ jobs:
         pip install -r requirements.txt
         pip install pyinstaller
 
-    - name: Build with PyInstaller
+    - name: Auto-Fix Main Script
+      shell: bash
       run: |
-        pyinstaller --noconsole --onefile --collect-all customtkinter main.py
-
-    - name: Upload Ready EXE
-      uses: actions/upload-artifact@v4
-      with:
-        name: PC-Guardian-EXE
-        path: dist/main.exe
+        echo "import customtkinter as ctk; import psutil; import threading; import time" > main.py
+        echo "class MainWindow(ctk.CTk):" >> main.py
+        echo "    def __init__(self):" >> main.py
+        echo "        super().__init__(); self.title('PC Guardian & Monitor'); self.geometry('1040x680'); self.configure(fg_color='#1E1E24')" >> main.py
+        echo "        self.grid_rowconfigure(0, weight=1); self.grid_columnconfigure(1, weight=1); self.cpu_usage = 0; self.ram_usage = 0; self.detected_threats = []" >> main.py
+        echo "        self.sidebar_frame = ctk.CTkFrame(self, width=220, corner_radius=0, fg_color='#141419'); self.sidebar_frame.grid(row=0, column=0, sticky='nsew'); self.sidebar_frame.grid_rowconfigure(5, weight=1)" >> main.py
+        echo "        self.logo_label = ctk.CTkLabel(self.sidebar_frame, text='PC GUARDIAN', font=ctk.CTkFont(family='Segoe UI', size=20, weight='bold'), text_color='#00A8E8'); self.logo_label.grid(row=0, column=0, padx=20, py=30)" >> main.py
+        echo "        self.btn_dashboard = self.create_menu_button('📊 Дашборд', row=1, command=self.show_dashboard)" >> main.py
+        echo "        self.btn_processes = self.create_menu_button('⚙️ Процессы', row=2, command=self.show_processes)" >> main.py
+        echo "        self.btn_threats = self.create_menu_button('🛡️ Анализ угроз', row=3, command=self.show_threats)" >> main.py
+        echo "        self.btn_settings = self.create_menu_button('🔧 Настройки', row=4, command=self.show_settings)" >> main.py
+        echo "        self.content_frame = ctk.CTkFrame(self, corner_radius=15, fg_color='transparent'); self.content_frame.grid(row=0, column=1, sticky='nsew', px=20, py=20)" >> main.py
+        echo "        self.current_tab = None; self.active_tab_name = ''; self.is_running = True" >> main.py
+        echo "        self.monitor_thread = threading.Thread(target=self.core_background_monitor, daemon=True); self.monitor_thread.start(); self.show_dashboard()" >> main.py
+        echo "    def create_menu_button(self, text, row, command):" >> main.py
+        echo "        btn = ctk.CTkButton(self.sidebar_frame, text=text, anchor='w', height=40, corner_radius=8, fg_color='transparent', text_color='#A3A3A3', hover_color='#23232A', font=ctk.CTkFont(family='Segoe UI', size=14), command=command)" >> main.py
+        echo "        btn.grid(row=row, column=0, sticky='ew', px=15, py=5); return btn" >> main.py
+        echo "    def set_active_button(self, active_btn):" >> main.py
+        echo "        for btn in [self.btn_dashboard, self.btn_processes, self.btn_threats, self.btn_settings]:" >> main.py
+        echo "            if btn == active_btn: btn.configure(fg_color='#23232A', text_color='#00A8E8', font=ctk.CTkFont(weight='bold'))" >> main.py
+        echo "            else: btn.configure(fg_color='transparent', text_color='#A3A3A3', font=ctk.CTkFont(weight='normal'))" >> main.py
+        echo "    def clear_content(self):" >> main.py
+        echo "        if self.current_tab is not None: self.current_tab.destroy()" >> main.py
+        echo "    def terminate_process(self, pid, callback_view):" >> main.py
+        echo "        try:" >> main.py
+        echo "            p = psutil.Process(pid); p.terminate(); p.wait(timeout=2)" >> main.py
+        echo "            if callback_view == 'processes': self.show_processes()" >> main.py
+        echo "            elif callback_view == 'threats': self.show_threats()" >> main.py
+        echo "        except: pass" >> main.py
+        echo "    def core_background_monitor(self):" >> main.py
+        echo "        while self.is_running:" >> main.py
+        echo "            self.cpu_usage = psutil.cpu_percent(interval=None); self.ram_usage = psutil.virtual_memory().percent" >> main.py
+        echo "            if self.active_tab_name == 'dashboard' and hasattr(self, 'cpu_progress'):" >> main.py
+        echo "                try:" >> main.py
+        echo "                    self.cpu_progress.set(self.cpu_usage / 100); self.cpu_label.configure(text=f'{int(self.cpu_usage)}%')" >> main.py
+        echo "                    self.ram_progress.set(self.ram_usage / 100); self.ram_label.configure(text=f'{int(self.ram_usage)}%')" >> main.py
+        echo "                except: pass" >> main.py
+        echo "            temp_threats = []" >> main.py
+        echo "            for proc in psutil.process_iter(['pid', 'name', 'exe', 'cmdline']):" >> main.py
+        echo "                try:" >> main.py
+        echo "                    p_info = proc.info; p_name = p_info['name'] or ''; p_exe = p_info['exe'] or ''; p_cmd = p_info['cmdline'] or []" >> main.py
+        echo "                    cmd_str = ' '.join(p_cmd).lower()" >> main.py
+        echo "                    if any(flag in cmd_str for flag in ['--stratum', '--user', 'xmrig', 'minerd', 'pool.mine', 'stratum+tcp']):" >> main.py
+        echo "                        temp_threats.append((p_info['pid'], p_name, 'Подозрительные аргументы запуска (Майнер пул)')); continue" >> main.py
+        echo "                    if p_name.lower() in ['svchost.exe', 'lsass.exe', 'services.exe']:" >> main.py
+        echo "                        if 'windows' not in p_exe.lower() and 'system32' not in p_exe.lower():" >> main.py
+        echo "                            temp_threats.append((p_info['pid'], p_name, 'Имитация системного файла (Запущен не из System32)')); continue" >> main.py
+        echo "                except: continue" >> main.py
+        echo "            self.detected_threats = temp_threats; time.sleep(2)" >> main.py
+        echo "    def show_dashboard(self):" >> main.py
+        echo "        self.set_active_button(self.btn_dashboard); self.clear_content(); self.active_tab_name = 'dashboard'" >> main.py
+        echo "        self.current_tab = ctk.CTkFrame(self.content_frame, fg_color='transparent'); self.current_tab.pack(fill='both', expand=True)" >> main.py
+        echo "        ctk.CTkLabel(self.current_tab, text='Мониторинг системы в реальном времени', font=('Segoe UI', 22, 'bold')).pack(anchor='w', py=10)" >> main.py
+        echo "        cf = ctk.CTkFrame(self.current_tab, fg_color='#141419', corner_radius=10, height=100); cf.pack(fill='x', py=10, px=5)" >> main.py
+        echo "        ctk.CTkLabel(cf, text='Центральный процессор (CPU)', font=('Segoe UI', 14, 'bold')).place(x=15, y=15)" >> main.py
+        echo "        self.cpu_progress = ctk.CTkProgressBar(cf, width=500, height=12, progress_color='#00A8E8'); self.cpu_progress.place(x=15, y=50); self.cpu_progress.set(self.cpu_usage / 100)" >> main.py
+        echo "        self.cpu_label = ctk.CTkLabel(cf, text=f'{int(self.cpu_usage)}%', font=('Segoe UI', 16, 'bold'), text_color='#00A8E8'); self.cpu_label.place(x=530, y=43)" >> main.py
+        echo "        rf = ctk.CTkFrame(self.current_tab, fg_color='#141419', corner_radius=10, height=100); rf.pack(fill='x', py=10, px=5)" >> main.py
+        echo "        ctk.CTkLabel(rf, text='Оперативная память (RAM)', font=('Segoe UI', 14, 'bold')).place(x=15, y=15)" >> main.py
+        echo "        self.ram_progress = ctk.CTkProgressBar(rf, width=500, height=12, progress_color='#00D26A'); self.ram_progress.place(x=15, y=50); self.ram_progress.set(self.ram_usage / 100)" >> main.py
+        echo "        self.ram_label = ctk.CTkLabel(rf, text=f'{int(self.ram_usage)}%', font=('Segoe UI', 16, 'bold'), text_color='#00D26A'); self.ram_label.place(x=530, y=43)" >> main.py
+        echo "    def show_processes(self):" >> main.py
+        echo "        self.set_active_button(self.btn_processes); self.clear_content(); self.active_tab_name = 'processes'" >> main.py
+        echo "        self.current_tab = ctk.CTkFrame(self.content_frame, fg_color='transparent'); self.current_tab.pack(fill='both', expand=True)" >> main.py
+        echo "        ctk.CTkLabel(self.current_tab, text='Диспетчер активных процессов', font=('Segoe UI', 22, 'bold')).pack(anchor='w', py=10)" >> main.py
+        echo "        sf = ctk.CTkScrollableFrame(self.current_tab, fg_color='#141419', height=450); sf.pack(fill='both', expand=True, px=5, py=10)" >> main.py
+        echo "        hf = ctk.CTkFrame(sf, fg_color='transparent', height=25); hf.pack(fill='x', side='top', ipady=5)" >> main.py
+        echo "        ctk.CTkLabel(hf, text='PID', font=('Segoe UI', 12, 'bold'), text_color='#7A7A85', width=80, anchor='w').pack(side='left')" >> main.py
+        echo "        ctk.CTkLabel(hf, text='Имя процесса', font=('Segoe UI', 12, 'bold'), text_color='#7A7A85', width=300, anchor='w').pack(side='left')" >> main.py
+        echo "        ctk.CTkLabel(hf, text='Действие', font=('Segoe UI', 12, 'bold'), text_color='#7A7A85').pack(side='right', px=20)" >> main.py
+        echo "        procs = []" >> main.py
+        echo "        for p in psutil.process_iter(['pid', 'name']):" >> main.py
+        echo "            try: procs.append(p.info)" >> main.py
+        echo "            except: continue" >> main.py
+        echo "        for p in procs[:40]:" >> main.py
+        echo "            row = ctk.CTkFrame(sf, fg_color='#1E1E24', corner_radius=6, height=35); row.pack(fill='x', py=2, px=5)" >> main.py
+        echo "            ctk.CTkLabel(row, text=str(p['pid']), font=('Segoe UI', 13), width=80, anchor='w').pack(side='left', px=10)" >> main.py
+        echo "            ctk.CTkLabel(row, text=p['name'] or 'Unknown', font=('Segoe UI', 13), width=300, anchor="w").pack(side='left')" >> main.py
+echo "            kb = ctk.CTkButton(row, text='Завершить', fg_color='#2A1B24', text_color='#FF3838', hover_color='#3D1A22', width=90, height=24, corner_radius=4, command=lambda pid=p['pid']: self.terminate_process(pid, 'processes'))" >> main.py
+echo "            kb.pack(side='right', px=10, py=5)" >> main.py
+echo "    def show_threats(self):" >> main.py
+echo "        self.set_active_button(self.btn_threats); self.clear_content(); self.active_tab_name = 'threats'" >> main.py
+echo "        self.current_tab = ctk.CTkFrame(self.content_frame, fg_color='transparent'); self.current_tab.pack(fill='both', expand=True)" >> main.py
+echo "        ctk.CTkLabel(self.current_tab, text='Анализатор аномалий', font=('Segoe UI', 22, 'bold')).pack(anchor='w', py=10)" >> main.py
+echo "        sf = ctk.CTkScrollableFrame(self.current_tab, fg_color='#141419', height=450); sf.pack(fill='both', expand=True, px=5, py=10)" >> main.py
+echo "        if not self.detected_threats:" >> main.py
+echo "            ob = ctk.CTkFrame(sf, fg_color='#14241C', height=100, corner_radius=8); ob.pack(fill='x', py=20, px=10)" >> main.py
+echo "            ctk.CTkLabel(ob, text='🟢 Активных угроз и скрытых майнеров не обнаружено', font=('Segoe UI', 15, 'bold'), text_color='#00D26A').pack(pady=35)" >> main.py
+echo "        else:" >> main.py
+echo "            for pid, name, r in self.detected_threats:" >> main.py
+echo "                row = ctk.CTkFrame(sf, fg_color='#2B191D', corner_radius=8, height=50); row.pack(fill='x', py=4, px=5)" >> main.py
+echo "                tf = ctk.CTkFrame(row, fg_color='transparent'); tf.pack(side='left', px=15, py=5)" >> main.py
+echo "                ctk.CTkLabel(tf, text=f'{name} (PID: {pid})', font=('Segoe UI', 14, 'bold'), text_color='#FF3838', anchor='w').pack(anchor='w')" >> main.py
+echo "                ctk.CTkLabel(tf, text=f'Причина: {r}', font=('Segoe UI', 12), text_color='#A3A3A3', anchor='w').pack(anchor='w')" >> main.py
+echo "                kb = ctk.CTkButton(row, text='Ликвидировать', fg_color='#FF3838', hover_color='#CC2424', width=120, height=30, corner_radius=6, command=lambda p_id=pid: self.terminate_process(p_id, 'threats'))" >> main.py
+echo "                kb.pack(side='right', px=15, py=10)" >> main.py
+echo "    def show_settings(self):" >> main.py
+echo "        self.set_active_button(self.btn_settings); self.clear_content(); self.active_tab_name = 'settings'" >> main.py
+echo "        self.current_tab = ctk.CTkFrame(self.content_frame, fg_color='transparent'); self.current_tab.pack(fill='both', expand=True)" >> main.py
+echo "        ctk.CTkLabel(self.current_tab, text='Настройки монитора', font=('Segoe UI', 22, 'bold')).pack(anchor='w', py=10)" >> main.py
+echo "        if_ = ctk.CTkFrame(self.current_tab, fg_color='#141419', corner_radius=10); if_.pack(fill='x', py=10, px=5, ipady=15)" >> main.py
+echo "        ctk.CTkLabel(if_, text='Защита ядра: Активна', font=('Segoe UI', 14), text_color='#00D26A').pack(anchor='w', px=20, py=5)" >> main.py
+echo "        ctk.CTkLabel(if_, text='Интервал сканирования: 2 сек', font=('Segoe UI', 14)).pack(anchor='w', px=20, py=5)" >> main.py
+echo "    def destroy(self):" >> main.py
+echo "        self.is_running = False; super().destroy()" >> main.py
+echo "if name == 'main':" >> main.py
+echo "    ctk.set_appearance_mode('dark'); ctk.set_default_color_theme('blue')" >> main.py
+echo "    app = MainWindow(); app.mainloop()" >> main.py
+- name: Build with PyInstaller
+run: |
+pyinstaller --noconsole --onefile --collect-all customtkinter main.py
+- name: Upload Ready EXE
+uses: actions/upload-artifact@v4
+with:
+name: PC-Guardian-EXE
+path: dist/main.exe
