@@ -24,21 +24,6 @@ jobs:
         pip install -r requirements.txt
         pip install pyinstaller
 
-    - name: Fix Code Layout
-      run: |
-        python -c "
-        with open('main.py', 'r', encoding='utf-8') as f:
-            lines = f.readlines()
-        with open('main.py', 'w', encoding='utf-8') as f:
-            for line in lines:
-                if 'def show_settings' in line:
-                    f.write('    def show_settings(self):\n        pass\n')
-                elif 'if __name__ ==' in line or 'if name ==' in line:
-                    f.write('if __name__ == \"__main__\":\n')
-                else:
-                    f.write(line)
-        "
-
     - name: Build with PyInstaller
       run: |
         pyinstaller --noconsole --onefile --collect-all customtkinter main.py
